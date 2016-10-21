@@ -44,7 +44,7 @@ public class App {
       saveEntities("Saving entities", expect(puts(3)));
 
       // Obtaining an entity from cache
-      findEntity("Load entity from database", expect(hit()));
+      findEntity("Load entity, should come from cache", expect(hit()));
 
       // Reloading same entity should come from cache
       findEntity("Reload entity", expect(hit()));
