@@ -84,16 +84,26 @@ public class App {
       // Trying to load entity from node 2 should not find entity
       findNoEntity("Trying to load entity from node 2", expect(miss()), emf2);
 
-//      // Query entities, expect:
-//      // * no cache hits since query is not cached
-//      // * a query cache miss and query cache put
-//      queryEntities("Query entities", expect(queryMiss(), queryPut()));
-//
-//      // Repeat query, expect:
-//      // * two cache hits for the number of entities in cache
-//      // * a query cache hit
-//      queryEntities("Repeat query", expect(hits(2), queryHit()));
-//
+      // Query entities on node 1, expect:
+      // * a query cache miss and query cache put
+      // * no cache hits since query is miss
+      queryEntities("Query entities on node 1", expect(queryMiss(), queryPut()), emf1);
+
+      // Repeat query on node 1, expect:
+      // * a query cache hit
+      // * two cache hits for the number of entities of the query cache hit
+      queryEntities("Repeat query on node 1", expect(queryHit(), hits(2)), emf1);
+
+      // Query entities on node 2, expect:
+      // * a query cache miss and query cache put
+      // * two cache puts for entities not present for query cache put
+      queryEntities("Query entities on node 2", expect(queryMiss(), queryPut(), puts(2)), emf2);
+
+      // Repeat query on node 2, expect:
+      // * a query cache hit
+      // * two cache hits for the number of entities in cache
+      queryEntities("Repeat query on node 2", expect(queryHit(), hits(2)), emf2);
+
 //      // Update entity, should come from cache and update the cache too
 //      updateEntity(2L, "Update entity", expect(hit(), put()));
 //
