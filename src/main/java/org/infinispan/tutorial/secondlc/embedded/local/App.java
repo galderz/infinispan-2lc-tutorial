@@ -75,9 +75,15 @@ public class App {
       // Reloading same entity from node 2 should be a miss since evict is cluster-wide
       findEntity("Reload entity from node 2", updatedEventName, expect(miss(), put()), emf2);
 
-//      // Remove cached entity
-//      deleteEntity("Remove cached entity", expect(hit()));
-//
+      // Reloading same entity from node 1 should be a miss
+      findEntity("Reload entity from node 1", updatedEventName, expect(miss(), put()), emf1);
+
+      // Remove cached entity from node 1, which results in a cluster-wide removal
+      deleteEntity("Remove cached entity in node 1", expect(hit()), emf1);
+
+      // Trying to load entity from node 2 should not find entity
+      findNoEntity("Trying to load entity from node 2", expect(miss()), emf2);
+
 //      // Query entities, expect:
 //      // * no cache hits since query is not cached
 //      // * a query cache miss and query cache put
@@ -133,6 +139,16 @@ public class App {
          System.out.printf("Found entity: %s%n", event);
          assert event != null;
          assert event.getName().equals(eventName);
+         return null;
+      }, logPrefix, expects, emf);
+   }
+
+   static void findNoEntity(String logPrefix, 
+         Function<int[], int[]> expects, EntityManagerFactory emf) {
+      withEM(em -> {
+         Event event = em.find(Event.class, 1L);
+         System.out.printf("Found entity: %s%n", event);
+         assert event == null;
          return null;
       }, logPrefix, expects, emf);
    }
