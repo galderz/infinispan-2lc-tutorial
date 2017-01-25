@@ -3,9 +3,9 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
    <modelVersion>4.0.0</modelVersion>
    <groupId>org.infinispan.tutorial</groupId>
-   <artifactId>infinispan-2lc-embedded-local-tutorial</artifactId>
+   <artifactId>infinispan-2lc-embedded-cluster-tutorial</artifactId>
    <version>1.0.0-SNAPSHOT</version>
-   <name>Infinispan Tutorial: Hibernate/JPA second level cache embedded local tutorial</name>
+   <name>Infinispan Tutorial: Hibernate/JPA second level cache embedded cluster tutorial</name>
 
    <properties>
       <version.hibernate-core>5.2.2.Final</version.hibernate-core>

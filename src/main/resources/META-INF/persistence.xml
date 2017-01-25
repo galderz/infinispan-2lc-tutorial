@@ -8,6 +8,7 @@
       <shared-cache-mode>ENABLE_SELECTIVE</shared-cache-mode>
       <properties>
          <!-- H2 in-memory database -->
+          <!--TODO: Switch to file based database for clustering -->
          <property name="hibernate.dialect" value="org.hibernate.dialect.H2Dialect"/>
          <property name="hibernate.connection.url" value="jdbc:h2:mem:db1;DB_CLOSE_DELAY=-1;MVCC=TRUE"/>
          <property name="hibernate.connection.driver_class" value="org.h2.Driver"/>
@@ -25,19 +26,19 @@
          <!-- Use Infinispan second level cache provider -->
          <property name="hibernate.cache.region.factory_class"
                    value="org.hibernate.cache.infinispan.InfinispanRegionFactory"/>
-         <!-- Force using local configuration when only using a single node.
-              Otherwise a clustered configuration is loaded. -->
-         <property name="hibernate.cache.infinispan.cfg"
-                   value="org/hibernate/cache/infinispan/builder/infinispan-configs-local.xml"/>
+         <!--&lt;!&ndash; Force using local configuration when only using a single node.-->
+              <!--Otherwise a clustered configuration is loaded. &ndash;&gt;-->
+         <!--<property name="hibernate.cache.infinispan.cfg"-->
+                   <!--value="org/hibernate/cache/infinispan/builder/infinispan-configs-local.xml"/>-->
 
          <!-- Generate statistics to see effects of second level cache -->
          <property name="hibernate.generate_statistics" value="true" />
 
-         <!-- Entity specific configuration, e.g. via property:
-                 hibernate.cache.infinispan.<Entity FQN>.expiration.max_idle
-         -->
-         <property name="hibernate.cache.infinispan.org.infinispan.tutorial.secondlc.model.Person.expiration.max_idle"
-                   value= "1000"/>
+         <!--&lt;!&ndash; Entity specific configuration, e.g. via property:-->
+                 <!--hibernate.cache.infinispan.<Entity FQN>.expiration.max_idle-->
+         <!--&ndash;&gt;-->
+         <!--<property name="hibernate.cache.infinispan.org.infinispan.tutorial.secondlc.model.Person.expiration.max_idle"-->
+                   <!--value= "1000"/>-->
       </properties>
    </persistence-unit>
 </persistence>

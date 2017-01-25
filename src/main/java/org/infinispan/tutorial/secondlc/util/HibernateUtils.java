@@ -1,15 +1,25 @@
 package org.infinispan.tutorial.secondlc.util;
 
+import java.lang.management.ManagementFactory;
 import java.util.Arrays;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import javax.management.AttributeNotFoundException;
+import javax.management.InstanceNotFoundException;
+import javax.management.MBeanException;
+import javax.management.MBeanServer;
+import javax.management.MalformedObjectNameException;
+import javax.management.ObjectName;
+import javax.management.ReflectionException;
 import javax.persistence.EntityManager;
 
 import org.hibernate.Session;
 import org.hibernate.stat.Statistics;
 
 public class HibernateUtils {
+
+   private static final MBeanServer MBEANS = ManagementFactory.getPlatformMBeanServer();
 
    private HibernateUtils() {
    }
@@ -89,6 +99,23 @@ public class HibernateUtils {
 
          return ret;
       };
+   }
+
+   public static void expectClusterNodes(int numNodes) {
+      try {
+         ObjectName cacheManagedName = new ObjectName(
+               "org.infinispan:type=CacheManager,name=\"SampleCacheManager\",component=CacheManager");
+
+         int size = (int) MBEANS.getAttribute(cacheManagedName, "clusterSize");
+         String members = (String) MBEANS.getAttribute(cacheManagedName, "clusterMembers");
+
+         System.out.printf("Cluster members: %s%n", members);
+         assert size == numNodes
+               : "Expected " + numNodes + " cluster nodes but got " + size
+               + " (members: " + members + ")";
+      } catch (Exception e) {
+         throw new AssertionError(e);
+      }
    }
 
    private static int[] getCacheCounts(EntityManager em) {

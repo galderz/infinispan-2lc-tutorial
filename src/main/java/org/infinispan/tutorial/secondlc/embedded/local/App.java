@@ -1,6 +1,7 @@
 package org.infinispan.tutorial.secondlc.embedded.local;
 
 import static org.infinispan.tutorial.secondlc.util.HibernateUtils.expect;
+import static org.infinispan.tutorial.secondlc.util.HibernateUtils.expectClusterNodes;
 import static org.infinispan.tutorial.secondlc.util.HibernateUtils.hit;
 import static org.infinispan.tutorial.secondlc.util.HibernateUtils.hits;
 import static org.infinispan.tutorial.secondlc.util.HibernateUtils.miss;
@@ -30,120 +31,141 @@ import org.infinispan.tutorial.secondlc.model.Person;
  * From IDE, run with following VM options to enable assertions and control logging:
  * -ea -Djava.util.logging.config.file=src/main/resources/logging-app.properties
  *
+ * By default the cluster should form without passing any extra parameters,
+ * but if having trouble cluster to form, add these system properties:
+ * -Djava.net.preferIPv4Stack=true -Djgroups.bind_addr=127.0.0.1
+ *
+ * To speed up startup cluster member discovery, start with:
+ * -Djgroups.join_timeout=1000
  */
 public class App {
 
-   static EntityManagerFactory emf;
+   static EntityManagerFactory emf1;
+   static EntityManagerFactory emf2;
 
    /**
     * Run through the lifecycle of an entity, verifying second-level cache
     * counts at each step.
     */
    static void jpaMain() throws InterruptedException {
-      // Saving (persisting) entities
-      saveEntities("Saving entities", expect(puts(3)));
+      // Saving (persisting) entities on node 1
+      saveEntities("Saving entities on node 1", expect(puts(3)), emf1);
 
-      // Obtaining an entity from cache
-      findEntity("Load entity from database", expect(hit()));
+      // Obtaining an entity from cache from node 1 is a hit
+      findEntity("Load entity from database on node 1", expect(hit()), emf1);
 
-      // Reloading same entity should come from cache
-      findEntity("Reload entity", expect(hit()));
+      // Obtaining an entity from cache from node 2 is a miss and put
+      findEntity("Load entity from database on node 2", expect(miss(), put()), emf2);
 
-      // Update an entity in cache
-      String updatedEventName = updateEntity(1L, "Update entity", expect(hit(), put()));
+      // Reloading same entity from node 1 should result in a hit
+      findEntity("Reload entity from node 1", expect(hit()), emf1);
 
-      // Reload updated entity, should come from cache
-      findEntity("Reload updated entity", updatedEventName, expect(hit()));
+      // Reloading same entity from node 2 should result in a hit
+      findEntity("Reload entity from node 2", expect(hit()), emf2);
 
-      // Evict entity from cache, no changes in cache
-      evictEntity("Evict entity", expect(unchanged()));
+      // Update an entity in node 2, should result in invalidation
+      String updatedEventName = updateEntity(1L, "Update entity on node 2", expect(hit(), put()), emf2);
 
-      // Reload evicted entity, should come from DB
-      findEntity("Reload evicted entity", updatedEventName, expect(miss(), put()));
+      // Reload updated entity from node 1, should come from database
+      findEntity("Reload updated entity from node 1", updatedEventName, expect(miss(), put()), emf1);
 
-      // Remove cached entity
-      deleteEntity("Remove cached entity", expect(hit()));
+      // Evict entity, no changes in cache
+      evictEntity("Evict entity in node 1", expect(unchanged()), emf1);
 
-      // Query entities, expect:
-      // * no cache hits since query is not cached
-      // * a query cache miss and query cache put
-      queryEntities("Query entities", expect(queryMiss(), queryPut()));
+      // Reloading same entity from node 2 should be a miss since evict is cluster-wide
+      findEntity("Reload entity from node 2", updatedEventName, expect(miss(), put()), emf2);
 
-      // Repeat query, expect:
-      // * two cache hits for the number of entities in cache
-      // * a query cache hit
-      queryEntities("Repeat query", expect(hits(2), queryHit()));
-
-      // Update entity, should come from cache and update the cache too
-      updateEntity(2L, "Update entity", expect(hit(), put()));
-
-      // Repeat query after update, expect:
-      // * no cache hits or puts since entities are already cached
-      // * a query cache miss and query cache put, because when an entity is updated,
-      //   any queries for that type are invalidated
-      queryEntities("Repeat query after update", expect(queryMiss(), queryPut()));
-
-      // Save cache-expiring entity
-      saveExpiringEntity("Saving expiring entity", expect(puts(1)));
-
-      // Find expiring entity, should come from cache
-      findExpiringEntity("Find expiring entity", expect(hit()));
-
-      // Wait long enough for entity to be expired from cache
-      Thread.sleep(1100);
-
-      // Find expiring entity, after expiration entity should come from DB
-      findExpiringEntity("Find entity after expiration", expect(miss(), put()));
+//      // Remove cached entity
+//      deleteEntity("Remove cached entity", expect(hit()));
+//
+//      // Query entities, expect:
+//      // * no cache hits since query is not cached
+//      // * a query cache miss and query cache put
+//      queryEntities("Query entities", expect(queryMiss(), queryPut()));
+//
+//      // Repeat query, expect:
+//      // * two cache hits for the number of entities in cache
+//      // * a query cache hit
+//      queryEntities("Repeat query", expect(hits(2), queryHit()));
+//
+//      // Update entity, should come from cache and update the cache too
+//      updateEntity(2L, "Update entity", expect(hit(), put()));
+//
+//      // Repeat query after update, expect:
+//      // * no cache hits or puts since entities are already cached
+//      // * a query cache miss and query cache put, because when an entity is updated,
+//      //   any queries for that type are invalidated
+//      queryEntities("Repeat query after update", expect(queryMiss(), queryPut()));
+//
+//      // Save cache-expiring entity
+//      saveExpiringEntity("Saving expiring entity", expect(puts(1)));
+//
+//      // Find expiring entity, should come from cache
+//      findExpiringEntity("Find expiring entity", expect(hit()));
+//
+//      // Wait long enough for entity to be expired from cache
+//      Thread.sleep(1100);
+//
+//      // Find expiring entity, after expiration entity should come from DB
+//      findExpiringEntity("Find entity after expiration", expect(miss(), put()));
    }
 
-   static void saveEntities(String logPrefix, Function<int[], int[]> expects) {
+   static void saveEntities(
+         String logPrefix, Function<int[], int[]> expects,
+         EntityManagerFactory emf) {
       withTxEM(em -> {
          em.persist(new Event("Caught a pokemon!"));
          em.persist(new Event("Hatched an egg"));
          em.persist(new Event("Became a gym leader"));
          return null;
-      }, logPrefix, expects);
+      }, logPrefix, expects, emf);
    }
 
-   static void findEntity(String logPrefix, Function<int[], int[]> expects) {
-      findEntity(logPrefix, "Caught a pokemon!", expects);
+   static void findEntity(String logPrefix,
+         Function<int[], int[]> expects, EntityManagerFactory emf) {
+      findEntity(logPrefix, "Caught a pokemon!", expects, emf);
    }
 
-   static void findEntity(String logPrefix, String eventName, Function<int[], int[]> expects) {
+   static void findEntity(String logPrefix, String eventName,
+         Function<int[], int[]> expects, EntityManagerFactory emf) {
       withEM(em -> {
          Event event = em.find(Event.class, 1L);
          System.out.printf("Found entity: %s%n", event);
          assert event != null;
          assert event.getName().equals(eventName);
          return null;
-      }, logPrefix, expects);
+      }, logPrefix, expects, emf);
    }
 
-   static String updateEntity(long id, String logPrefix, Function<int[], int[]> expects) {
+   static String updateEntity(long id, String logPrefix,
+         Function<int[], int[]> expects, EntityManagerFactory emf) {
       return withTxEM(em -> {
          Event event = em.find(Event.class, id);
          String newName = "Caught a Snorlax!!";
          event.setName("Caught a Snorlax!!");
          return newName;
-      }, logPrefix, expects);
+      }, logPrefix, expects, emf);
    }
 
-   static void evictEntity(String logPrefix, Function<int[], int[]> expects) {
+   static void evictEntity(String logPrefix,
+         Function<int[], int[]> expects, EntityManagerFactory emf) {
       withEM(em -> {
          em.getEntityManagerFactory().getCache().evict(Event.class, 1L);
          return null;
-      }, logPrefix, expects);
+      }, logPrefix, expects, emf);
    }
 
-   static void deleteEntity(String logPrefix, Function<int[], int[]> expects) {
+   static void deleteEntity(String logPrefix,
+         Function<int[], int[]> expects, EntityManagerFactory emf) {
       withTxEM(em -> {
          Event event = em.find(Event.class, 1L);
          em.remove(event);
          return null;
-      }, logPrefix, expects);
+      }, logPrefix, expects, emf);
    }
 
-   static void queryEntities(String logPrefix, Function<int[], int[]> expects) {
+   static void queryEntities(String logPrefix,
+         Function<int[], int[]> expects, EntityManagerFactory emf) {
       withEM(em -> {
          TypedQuery<Event> query = em.createQuery("from Event", Event.class);
          query.setHint("org.hibernate.cacheable", Boolean.TRUE);
@@ -151,29 +173,31 @@ public class App {
          System.out.printf("Queried events: %s%n", events);
          assert events.size() == 2;
          return null;
-      }, logPrefix, expects);
+      }, logPrefix, expects, emf);
    }
 
-   static void saveExpiringEntity(String logPrefix, Function<int[], int[]> expects) {
+   static void saveExpiringEntity(String logPrefix,
+         Function<int[], int[]> expects, EntityManagerFactory emf) {
       withTxEM(em -> {
          em.persist(new Person("Satoshi"));
          return null;
-      }, logPrefix, expects);
+      }, logPrefix, expects, emf);
    }
 
-   static void findExpiringEntity(String logPrefix, Function<int[], int[]> expects) {
+   static void findExpiringEntity(String logPrefix,
+         Function<int[], int[]> expects, EntityManagerFactory emf) {
       withEM(em -> {
          Person person = em.find(Person.class, 4L);
          System.out.printf("Found expiring entity: %s%n", person);
          assert person != null;
          assert person.getName().equals("Satoshi");
          return null;
-      }, logPrefix, expects);
+      }, logPrefix, expects, emf);
    }
 
    static <T> T withEM(
          Function<EntityManager, T> f, String logPrefix,
-         Function<int[], int[]> expects) {
+         Function<int[], int[]> expects, EntityManagerFactory emf) {
       EntityManager em = emf.createEntityManager();
       try {
          return withCacheExpects(() -> f.apply(em), logPrefix, expects).apply(em);
@@ -184,7 +208,7 @@ public class App {
 
    static <T> T withTxEM(
          Function<EntityManager, T> f, String logPrefix,
-         Function<int[], int[]> expects) {
+         Function<int[], int[]> expects, EntityManagerFactory emf) {
       EntityManager em = emf.createEntityManager();
       try {
          // Lambda captures `em` and `f` variables which is not highly recommended,
@@ -209,11 +233,14 @@ public class App {
 
    public static void main(String[] args) throws Exception {
       // Obtaining the javax.persistence.EntityManagerFactory
-      emf = Persistence.createEntityManagerFactory("events");
+      emf1 = Persistence.createEntityManagerFactory("events");
+      emf2 = Persistence.createEntityManagerFactory("events");
       try {
+         expectClusterNodes(2);
          jpaMain();
       } finally {
-         emf.close();
+         emf1.close();
+         emf2.close();
       }
    }
 
