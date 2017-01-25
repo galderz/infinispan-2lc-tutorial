@@ -104,15 +104,19 @@ public class App {
       // * two cache hits for the number of entities in cache
       queryEntities("Repeat query on node 2", expect(queryHit(), hits(2)), emf2);
 
-//      // Update entity, should come from cache and update the cache too
-//      updateEntity(2L, "Update entity", expect(hit(), put()));
-//
-//      // Repeat query after update, expect:
-//      // * no cache hits or puts since entities are already cached
-//      // * a query cache miss and query cache put, because when an entity is updated,
-//      //   any queries for that type are invalidated
-//      queryEntities("Repeat query after update", expect(queryMiss(), queryPut()));
-//
+      // Update entity on node 2, should come from cache and update the cache too
+      updateEntity(2L, "Update entity on node 2", expect(hit(), put()), emf2);
+
+      // TODO: Statement below randomly fails:
+      // get TRACE logs for both situations (needs adding dependencies)
+      // and verify why sometimes it passes and sometimes it does not
+
+      // Repeat query on node 2 after update, expect:
+      // * a query cache miss and query cache put, because when an entity is updated,
+      //   any queries for that type are invalidated
+      // * no cache hits or puts since entities are already cached
+      queryEntities("Repeat query on node 2 after update", expect(queryMiss(), queryPut()), emf2);
+
 //      // Save cache-expiring entity
 //      saveExpiringEntity("Saving expiring entity", expect(puts(1)));
 //
