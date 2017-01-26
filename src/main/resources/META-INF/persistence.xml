@@ -34,11 +34,11 @@
          <!-- Generate statistics to see effects of second level cache -->
          <property name="hibernate.generate_statistics" value="true" />
 
-         <!--&lt;!&ndash; Entity specific configuration, e.g. via property:-->
-                 <!--hibernate.cache.infinispan.<Entity FQN>.expiration.max_idle-->
-         <!--&ndash;&gt;-->
-         <!--<property name="hibernate.cache.infinispan.org.infinispan.tutorial.secondlc.model.Person.expiration.max_idle"-->
-                   <!--value= "1000"/>-->
+         <!-- Entity specific configuration, e.g. via property:
+                 hibernate.cache.infinispan.<Entity FQN>.expiration.max_idle
+         -->
+         <property name="hibernate.cache.infinispan.org.infinispan.tutorial.secondlc.model.Person.expiration.max_idle"
+                   value= "1000"/>
       </properties>
    </persistence-unit>
 </persistence>

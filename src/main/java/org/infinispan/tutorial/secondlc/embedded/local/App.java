@@ -121,26 +121,26 @@ public class App {
       //   and needs to come from DB
       queryEntities("Repeat query on node 2 after update", expect(queryMiss(), queryPut(), puts(1)), emf2);
 
-//      // Save cache-expiring entity in node 2
-//      saveExpiringEntity("Saving expiring entity in node 2", expect(puts(1)), emf2);
-//
-//      // Find expiring entity in node 2, should come from cache
-//      findExpiringEntity("Find expiring entity in node 2", expect(hit()), emf2);
-//
-//      // Find expiring entity in node 1, should come from DB
-//      findExpiringEntity("Find expiring entity in node 1", expect(miss(), put()), emf1);
-//
-//      // Wait long enough for entity to be expired from cache
-//      sleep(1100);
-//
-//      // Expiration is a cluster-wide event, so any queries should be
-//      // resolved from DB regardless of the node in which they're invoked.
-//
-//      // Find expiring entity in node 1, after expiration entity should come from DB
-//      findExpiringEntity("Find entity after expiration in node 1", expect(miss(), put()), emf1);
-//
-//      // Find expiring entity on node 2, after expiration entity should come from DB
-//      findExpiringEntity("Find entity after expiration in node 2", expect(miss(), put()), emf2);
+      // Save cache-expiring entity in node 2
+      saveExpiringEntity("Saving expiring entity in node 2", expect(puts(1)), emf2);
+
+      // Find expiring entity in node 2, should come from cache
+      findExpiringEntity("Find expiring entity in node 2", expect(hit()), emf2);
+
+      // Find expiring entity in node 1, should come from DB
+      findExpiringEntity("Find expiring entity in node 1", expect(miss(), put()), emf1);
+
+      // Wait long enough for entity to be expired from cache
+      sleep(1100);
+
+      // Expiration is a cluster-wide event, so any queries should be
+      // resolved from DB regardless of the node in which they're invoked.
+
+      // Find expiring entity in node 1, after expiration entity should come from DB
+      findExpiringEntity("Find entity after expiration in node 1", expect(miss(), put()), emf1);
+
+      // Find expiring entity on node 2, after expiration entity should come from DB
+      findExpiringEntity("Find entity after expiration in node 2", expect(miss(), put()), emf2);
    }
 
    static void saveEntities(
