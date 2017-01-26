@@ -1,4 +1,4 @@
-package org.infinispan.tutorial.secondlc.embedded.local;
+package org.infinispan.tutorial.secondlc.embedded.cluster;
 
 import static org.infinispan.tutorial.secondlc.util.HibernateUtils.expect;
 import static org.infinispan.tutorial.secondlc.util.HibernateUtils.expectClusterNodes;
@@ -25,7 +25,6 @@ import javax.persistence.TypedQuery;
 
 import org.infinispan.tutorial.secondlc.model.Event;
 import org.infinispan.tutorial.secondlc.model.Person;
-import org.jboss.logging.Logger;
 
 /**
  * Application demonstrating Infinispan second-level cache provider for Hibernate.

@@ -71,7 +71,7 @@
                   </argument>
                   <argument>-classpath</argument>
                   <classpath/>
-                  <argument>org.infinispan.tutorial.secondlc.embedded.local.App
+                  <argument>org.infinispan.tutorial.secondlc.embedded.cluster.App
                   </argument>
                </arguments>
             </configuration>
