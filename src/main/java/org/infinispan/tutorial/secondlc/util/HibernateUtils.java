@@ -16,8 +16,11 @@ import javax.persistence.EntityManager;
 
 import org.hibernate.Session;
 import org.hibernate.stat.Statistics;
+import org.jboss.logging.Logger;
 
 public class HibernateUtils {
+
+   private static final Logger LOGGER = Logger.getLogger(HibernateUtils.class);
 
    private static final MBeanServer MBEANS = ManagementFactory.getPlatformMBeanServer();
 
@@ -92,7 +95,7 @@ public class HibernateUtils {
          int[] expected = expects.apply(prev);
 
          // Log event and counts
-         System.out.printf("%s: %s%n", logPrefix, toStringCounts(actual));
+         log("%s: %s%n", logPrefix, toStringCounts(actual));
 
          // Compare cache counts with expected numbers
          assert Arrays.equals(expected, actual) : toStringCounts(actual, expected);
@@ -109,13 +112,18 @@ public class HibernateUtils {
          int size = (int) MBEANS.getAttribute(cacheManagedName, "clusterSize");
          String members = (String) MBEANS.getAttribute(cacheManagedName, "clusterMembers");
 
-         System.out.printf("Cluster members: %s%n", members);
+         log("Cluster members: %s%n", members);
          assert size == numNodes
                : "Expected " + numNodes + " cluster nodes but got " + size
                + " (members: " + members + ")";
       } catch (Exception e) {
          throw new AssertionError(e);
       }
+   }
+
+   public static void log(String format, Object ... args) {
+      System.out.printf(format, args);
+      LOGGER.infof(format, args);
    }
 
    private static int[] getCacheCounts(EntityManager em) {

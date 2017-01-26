@@ -4,6 +4,7 @@ import static org.infinispan.tutorial.secondlc.util.HibernateUtils.expect;
 import static org.infinispan.tutorial.secondlc.util.HibernateUtils.expectClusterNodes;
 import static org.infinispan.tutorial.secondlc.util.HibernateUtils.hit;
 import static org.infinispan.tutorial.secondlc.util.HibernateUtils.hits;
+import static org.infinispan.tutorial.secondlc.util.HibernateUtils.log;
 import static org.infinispan.tutorial.secondlc.util.HibernateUtils.miss;
 import static org.infinispan.tutorial.secondlc.util.HibernateUtils.put;
 import static org.infinispan.tutorial.secondlc.util.HibernateUtils.puts;
@@ -24,19 +25,16 @@ import javax.persistence.TypedQuery;
 
 import org.infinispan.tutorial.secondlc.model.Event;
 import org.infinispan.tutorial.secondlc.model.Person;
+import org.jboss.logging.Logger;
 
 /**
  * Application demonstrating Infinispan second-level cache provider for Hibernate.
  *
- * From IDE, run with following VM options to enable assertions and control logging:
- * -ea -Djava.util.logging.config.file=src/main/resources/logging-app.properties
+ * To run from IDE, it is recommended that the following VM options are passed in:
  *
- * By default the cluster should form without passing any extra parameters,
- * but if having trouble cluster to form, add these system properties:
- * -Djava.net.preferIPv4Stack=true -Djgroups.bind_addr=127.0.0.1
- *
- * To speed up startup cluster member discovery, start with:
- * -Djgroups.join_timeout=1000
+ * <code>
+ * -ea -Djava.net.preferIPv4Stack=true -Djgroups.bind_addr=127.0.0.1 -Djgroups.join_timeout=1000 -Dlog4j.configurationFile=file:src/main/resources/logging-app.xml
+ * </code>
  */
 public class App {
 
@@ -47,7 +45,7 @@ public class App {
     * Run through the lifecycle of an entity, verifying second-level cache
     * counts at each step.
     */
-   static void jpaMain() throws InterruptedException {
+   static void jpaMain() {
       // Saving (persisting) entities on node 1
       saveEntities("Saving entities on node 1", expect(puts(3)), emf1);
 
@@ -64,7 +62,7 @@ public class App {
       findEntity("Reload entity from node 2", expect(hit()), emf2);
 
       // Update an entity in node 2, should result in invalidation
-      String updatedEventName = updateEntity(1L, "Update entity on node 2", expect(hit(), put()), emf2);
+      String updatedEventName = updateEntity(1L, "Update entity(id=1) on node 2", expect(hit(), put()), emf2);
 
       // Reload updated entity from node 1, should come from database
       findEntity("Reload updated entity from node 1", updatedEventName, expect(miss(), put()), emf1);
@@ -104,30 +102,45 @@ public class App {
       // * two cache hits for the number of entities in cache
       queryEntities("Repeat query on node 2", expect(queryHit(), hits(2)), emf2);
 
-      // Update entity on node 2, should come from cache and update the cache too
-      updateEntity(2L, "Update entity on node 2", expect(hit(), put()), emf2);
+      // Update entity on node 1, should come from cache and update the cache too
+      updateEntity(2L, "Update entity(id=2) on node 1", expect(hit(), put()), emf1);
 
-      // TODO: Statement below randomly fails:
-      // get TRACE logs for both situations (needs adding dependencies)
-      // and verify why sometimes it passes and sometimes it does not
+      // Sleep briefly to allow entity type update timestamp update to
+      // propagate to other node, because update is asynchronous.
+      //
+      // Note: Even if the update and query happened in the same node, this
+      // sleep is necessary because if the update timestamp key is owned by
+      // the other node, the update will happen asynchronously
+      sleep(500);
 
       // Repeat query on node 2 after update, expect:
       // * a query cache miss and query cache put, because when an entity is updated,
       //   any queries for that type are invalidated
-      // * no cache hits or puts since entities are already cached
-      queryEntities("Repeat query on node 2 after update", expect(queryMiss(), queryPut()), emf2);
+      // * a cache put since only there was already an entity in cache,
+      //   the put is for the updated entity which was invalidated
+      //   and needs to come from DB
+      queryEntities("Repeat query on node 2 after update", expect(queryMiss(), queryPut(), puts(1)), emf2);
 
-//      // Save cache-expiring entity
-//      saveExpiringEntity("Saving expiring entity", expect(puts(1)));
+//      // Save cache-expiring entity in node 2
+//      saveExpiringEntity("Saving expiring entity in node 2", expect(puts(1)), emf2);
 //
-//      // Find expiring entity, should come from cache
-//      findExpiringEntity("Find expiring entity", expect(hit()));
+//      // Find expiring entity in node 2, should come from cache
+//      findExpiringEntity("Find expiring entity in node 2", expect(hit()), emf2);
+//
+//      // Find expiring entity in node 1, should come from DB
+//      findExpiringEntity("Find expiring entity in node 1", expect(miss(), put()), emf1);
 //
 //      // Wait long enough for entity to be expired from cache
-//      Thread.sleep(1100);
+//      sleep(1100);
 //
-//      // Find expiring entity, after expiration entity should come from DB
-//      findExpiringEntity("Find entity after expiration", expect(miss(), put()));
+//      // Expiration is a cluster-wide event, so any queries should be
+//      // resolved from DB regardless of the node in which they're invoked.
+//
+//      // Find expiring entity in node 1, after expiration entity should come from DB
+//      findExpiringEntity("Find entity after expiration in node 1", expect(miss(), put()), emf1);
+//
+//      // Find expiring entity on node 2, after expiration entity should come from DB
+//      findExpiringEntity("Find entity after expiration in node 2", expect(miss(), put()), emf2);
    }
 
    static void saveEntities(
@@ -150,7 +163,7 @@ public class App {
          Function<int[], int[]> expects, EntityManagerFactory emf) {
       withEM(em -> {
          Event event = em.find(Event.class, 1L);
-         System.out.printf("Found entity: %s%n", event);
+         log("Found entity: %s%n", event);
          assert event != null;
          assert event.getName().equals(eventName);
          return null;
@@ -161,7 +174,7 @@ public class App {
          Function<int[], int[]> expects, EntityManagerFactory emf) {
       withEM(em -> {
          Event event = em.find(Event.class, 1L);
-         System.out.printf("Found entity: %s%n", event);
+         log("Found entity: %s%n", event);
          assert event == null;
          return null;
       }, logPrefix, expects, emf);
@@ -200,7 +213,7 @@ public class App {
          TypedQuery<Event> query = em.createQuery("from Event", Event.class);
          query.setHint("org.hibernate.cacheable", Boolean.TRUE);
          List<Event> events = query.getResultList();
-         System.out.printf("Queried events: %s%n", events);
+         log("Queried events: %s%n", events);
          assert events.size() == 2;
          return null;
       }, logPrefix, expects, emf);
@@ -218,7 +231,7 @@ public class App {
          Function<int[], int[]> expects, EntityManagerFactory emf) {
       withEM(em -> {
          Person person = em.find(Person.class, 4L);
-         System.out.printf("Found expiring entity: %s%n", person);
+         log("Found expiring entity: %s%n", person);
          assert person != null;
          assert person.getName().equals("Satoshi");
          return null;
@@ -258,6 +271,14 @@ public class App {
          }, logPrefix, expects).apply(em);
       } finally {
          em.close();
+      }
+   }
+
+   static void sleep(long millis) {
+      try {
+         Thread.sleep(millis);
+      } catch (InterruptedException e) {
+         throw new AssertionError(e);
       }
    }
 
